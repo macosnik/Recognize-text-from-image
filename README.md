@@ -465,8 +465,6 @@ y = np.zeros((num_classes, len(y_data)))
 for i, symbol in enumerate(symbols):
     y[i, y_data == symbol] = 1
 
-x = x.astype(np.float32) / 255.0
-
 model = MLP([400, 128, 64, num_classes])
 
 model.train(x, y, epochs=100, lr=0.1)
