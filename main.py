@@ -1,68 +1,79 @@
+import easyocr
+import os
 import numpy as np
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 
-class MLP:
-    def __init__(self, layers):
-        self.layers = layers
-        self.weights = []
-        self.biases = []
-        
-        for i in range(len(layers) - 1):
-            w = np.random.randn(layers[i + 1], layers[i]) * 0.1
-            b = np.zeros((layers[i + 1], 1))
-            self.weights.append(w)
-            self.biases.append(b)
-    
-    def sigmoid(self, x):
-        return 1 / (1 + np.exp(-x))
-    
-    def sigmoid_derivative(self, x):
-        return x * (1 - x)
-    
-    def forward(self, x):
-        self.activations = [x]
-        self.z_list = []
-        
-        activation = x
-        for w, b in zip(self.weights, self.biases):
-            z = np.dot(w, activation) + b
-            activation = self.sigmoid(z)
-            self.z_list.append(z)
-            self.activations.append(activation)
-        
-        return activation
-    
-    def backward(self, x, y, lr):
-        m = x.shape[1]
-        
-        delta = (self.activations[-1] - y) * self.sigmoid_derivative(self.activations[-1])
-        
-        for i in range(len(self.layers) - 2, -1, -1):
-            dw = np.dot(delta, self.activations[i].T) / m
-            db = np.sum(delta, axis=1, keepdims=True) / m
-            
-            self.weights[i] -= lr * dw
-            self.biases[i] -= lr * db
-            
-            if i > 0:
-                delta = np.dot(self.weights[i].T, delta) * self.sigmoid_derivative(self.activations[i])
-    
-    def train(self, x, y, epochs, lr):
-        for epoch in range(epochs):
-            output = self.forward(x)
-            self.backward(x, y, lr)
-            loss = np.mean((output - y) ** 2)
-            print(f"\rEpoch {epoch}, Loss: {loss:.6f}", end="")
-    
-    def save_model(self, path):
-        model_dict = {
-            'layers': self.layers,
-            'weights': self.weights,
-            'biases': self.biases
-        }
-        np.savez(path, **model_dict)
-    
-    def load_model(self, path):
-        data = np.load(path)
-        self.layers = data['layers']
-        self.weights = list(data['weights'])
-        self.biases = list(data['biases'])
+reader = easyocr.Reader(['ru'])
+
+def group(results):
+    if not results:
+        return []
+
+    texts, x, y, w, h = [], [], [], [], []
+
+    for coordinate, text, _ in results:
+        x_arr = [px[0] for px in coordinate]
+        y_arr = [px[1] for px in coordinate]
+        texts.append(text.strip())
+        x.append(sum(x_arr) / 4.0)
+        y.append(sum(y_arr) / 4.0)
+        w.append(max(x_arr) - min(x_arr))
+        h.append(max(y_arr) - min(y_arr))
+
+    def sort_key_index(i):
+        return (y[i], x[i])
+
+    def sort_key_x(j):
+        return x[j]
+
+    sort_indexes = sorted(range(len(texts)), key=sort_key_index)
+
+    lines, current_line = [], []
+
+    for i in sort_indexes:
+        if not current_line:
+            current_line = [i]
+            continue
+        if abs(y[i] - y[current_line[-1]]) <= np.mean(h) * 0.6:
+            current_line.append(i)
+        else:
+            current_line.sort(key=sort_key_x)
+            lines.append(current_line)
+            current_line = [i]
+
+    if current_line:
+        current_line.sort(key=sort_key_x)
+        lines.append(current_line)
+
+    return "\n".join([" ".join(texts[j] for j in line) for line in lines])
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Отправь мне изображение, и я распознаю текст на нём.")
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo = update.message.photo[-1]
+    file = await photo.get_file()
+    file_path = f"dataset/temp_{len(os.listdir('dataset'))}.jpg"
+    await file.download_to_drive(file_path)
+
+    results = reader.readtext(file_path)
+    text = group(results)
+
+    if text == []:
+        await update.message.reply_text("Не удалось распознать текст 😔")
+    else:
+        await update.message.reply_text(text)
+
+def main():
+    telegram = Application.builder().token("TOKEN").build()
+
+    telegram.add_handler(CommandHandler("start", start))
+    telegram.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+
+    telegram.run_polling()
+
+if __name__ == "__main__":
+    os.system("mkdir dataset")
+    main()
