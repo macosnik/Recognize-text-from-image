@@ -292,123 +292,22 @@ $$
 
 ### 1.9. Пример реализации
 
-```python
-import numpy as np
-
-class MLP:
-    def __init__(self, layers):
-        self.layers = layers
-        self.weights = []
-        self.biases = []
-        
-        for i in range(len(layers) - 1):
-            w = np.random.randn(layers[i + 1], layers[i]) * 0.1
-            b = np.zeros((layers[i + 1], 1))
-            self.weights.append(w)
-            self.biases.append(b)
-    
-    def sigmoid(self, x):
-        return 1 / (1 + np.exp(-x))
-    
-    def sigmoid_derivative(self, x):
-        return x * (1 - x)
-    
-    def forward(self, x):
-        self.activations = [x]
-        self.z_list = []
-        
-        activation = x
-        for w, b in zip(self.weights, self.biases):
-            z = np.dot(w, activation) + b
-            activation = self.sigmoid(z)
-            self.z_list.append(z)
-            self.activations.append(activation)
-        
-        return activation
-    
-    def backward(self, x, y, lr):
-        m = x.shape[1]
-        
-        delta = (self.activations[-1] - y) * self.sigmoid_derivative(self.activations[-1])
-        
-        for i in range(len(self.layers) - 2, -1, -1):
-            dw = np.dot(delta, self.activations[i].T) / m
-            db = np.sum(delta, axis=1, keepdims=True) / m
-            
-            self.weights[i] -= lr * dw
-            self.biases[i] -= lr * db
-            
-            if i > 0:
-                delta = np.dot(self.weights[i].T, delta) * self.sigmoid_derivative(self.activations[i])
-    
-    def train(self, x, y, epochs, lr):
-        for epoch in range(epochs):
-            output = self.forward(x)
-            self.backward(x, y, lr)
-            loss = np.mean((output - y) ** 2)
-            print(f"\rEpoch {epoch}, Loss: {loss:.6f}", end="")
-    
-    def save_model(self, path):
-        model_dict = {
-            'layers': self.layers,
-            'weights': self.weights,
-            'biases': self.biases
-        }
-        np.savez(path, **model_dict)
-    
-    def load_model(self, path):
-        data = np.load(path)
-        self.layers = data['layers']
-        self.weights = list(data['weights'])
-        self.biases = list(data['biases'])
-```
-
-### 1.10. Тестирование
-
-Для обучения модели необходимо: 
-- Иметь 2 типа паттернов для обучения: положительные примеры и отрицательные примеры. Так как MLP модель на вход принимает фиксированный размер входных данных, то ими будет массив изображения разрешением 20x20px с изображёнными на них символами из указанного алфавита. 
+Для обучения модели необходимо:
 - Алфавит состоящий из кириллицы, представленный в обоих регистрах, и цифры со специальными символами: `АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789.,;:!?()-«»`
 - Множество шрифтов для кириллицы, помещённые в папку `fonts`
-- Случайные изображения в папке `trash` для генерации отрицательных паттернов
 
 **Пример кода для генерации датасета для обучения нейросети:**
 ```python
+# dataset.py
 from PIL import Image, ImageDraw, ImageFont
-import numpy as np
+import numpy
 import os
 
 SYMBOLS = [i for i in "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789.,;:!?()-«»"]
 FONTS = os.listdir("fonts")
-TRASH = os.listdir("trash")
 
 if __name__ == "__main__":
     x, y = [], []
-    done = 1
-
-    for file in TRASH:
-        trash_img = Image.open(os.path.join("trash", file)).convert("L")
-        w, h = trash_img.size
-
-        for _ in range(1000):
-            while True:
-                x0 = np.random.randint(0, w - 60 + 1)
-                y0 = np.random.randint(0, h - 60 + 1)
-                img = trash_img.crop((x0, y0, x0 + 60, y0 + 60))
-                img = img.resize((20, 20))
-
-                arr = np.array(img)
-                arr = (arr > 100).astype(np.uint8)
-
-                if 0 < arr.sum() <= 0.9 * arr.size:
-                    x.append(arr.flatten())
-                    y.append("trash")
-
-                    print(f"\r{done}/{len(TRASH) * 1000}", end="")
-                    done += 1
-
-                    break
-
-    print()
     done = 1
 
     for symbol in SYMBOLS:
@@ -420,18 +319,18 @@ if __name__ == "__main__":
             img = img.crop(img.getbbox())
             img = img.resize((20, 20))
 
-            arr = np.array(img)
-            arr = (arr > 100).astype(np.uint8)
+            arr = numpy.array(img)
+            arr = (arr > 100).astype(numpy.uint8)
             x.append(arr.flatten())
             y.append(symbol)
 
             print(f"\r{done}/{len(SYMBOLS) * len(FONTS)}", end="")
             done += 1
 
-    x = np.array(x, dtype=np.uint8)
-    y = np.array(y)
+    x = numpy.array(x, dtype=numpy.uint8)
+    y = numpy.array(y)
 
-    np.savez("dataset.npz", x=x, y=y)
+    numpy.savez("dataset.npz", x=x, y=y)
 
     print()
 ```
@@ -452,25 +351,75 @@ python dataset.py
 
 **Код для обучения модели:**
 ```python
-import numpy as np
-from mlp_model import MLP
+# train.py
+import tensorflow
+import numpy
 
-data = np.load("dataset.npz")
-x = data['x'].T
-y_data = data['y']
+data = numpy.load("dataset.npz")
+x, y = data["x"], data["y"]
 
-symbols = np.unique(y_data)
+symbols = numpy.unique(y)
+symbol_to_idx = {s: i for i, s in enumerate(symbols)}
+
+y = numpy.array([symbol_to_idx[s] for s in y])
 num_classes = len(symbols)
+y = tensorflow.keras.utils.to_categorical(y, num_classes)
 
-y = np.zeros((num_classes, len(y_data)))
-for i, symbol in enumerate(symbols):
-    y[i, y_data == symbol] = 1
+indices = numpy.arange(len(x))
+numpy.random.shuffle(indices)
+x = x[indices]
+y = y[indices]
 
-model = MLP([400, 128, 64, num_classes])
+split = int(0.8 * len(x))
+X_train, X_val = x[:split], x[split:]
+y_train, y_val = y[:split], y[split:]
 
-model.train(x, y, epochs=100, lr=0.1)
+model = tensorflow.keras.Sequential([
+    tensorflow.keras.layers.Input(shape=(400,)),
+    tensorflow.keras.layers.Dense(512, activation="relu"),
+    tensorflow.keras.layers.BatchNormalization(),
+    tensorflow.keras.layers.Dropout(0.5),
+    tensorflow.keras.layers.Dense(256, activation="relu"),
+    tensorflow.keras.layers.BatchNormalization(),
+    tensorflow.keras.layers.Dropout(0.5),
+    tensorflow.keras.layers.Dense(128, activation="relu"),
+    tensorflow.keras.layers.BatchNormalization(),
+    tensorflow.keras.layers.Dropout(0.4),
+    tensorflow.keras.layers.Dense(64, activation="relu"),
+    tensorflow.keras.layers.Dropout(0.3),
+    tensorflow.keras.layers.Dense(num_classes, activation="softmax")
+])
 
-model.save_model("model.npz")
+model.compile(
+    optimizer=tensorflow.keras.optimizers.Adam(learning_rate=0.001),
+    loss="categorical_crossentropy",
+    metrics=["accuracy"]
+)
+
+reduce_lr = tensorflow.keras.callbacks.ReduceLROnPlateau(
+    monitor='val_accuracy',
+    factor=0.1, 
+    patience=3, 
+    min_lr=0.000001
+)
+
+early_stopping = tensorflow.keras.callbacks.EarlyStopping(
+    monitor='val_accuracy', 
+    patience=20, 
+    restore_best_weights=True
+)
+
+model.fit(X_train, y_train,
+    validation_data=(X_val, y_val),
+    epochs=300,
+    batch_size=64,
+    shuffle=True,
+    callbacks=[early_stopping, reduce_lr],
+    verbose=1
+    )
+
+model.save("model.keras")
+numpy.savez("labels.npz", symbols=symbols)
 ```
 
 **Запусти обучение:**
