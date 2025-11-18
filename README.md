@@ -107,7 +107,7 @@
 
 #### Входные сигналы:
 $$
-a_i^{(1)} = \varphi\left(\sum_{j=1}^{n} w_{ij}^{(1)} x_j + b_i^{(1)}\right)
+z_i^l = \sum_{j=1}^{n} \left[ w_{ij}^l \cdot a_j^{(l-1)} \right] + b_i^l
 $$
 
 где:
