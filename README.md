@@ -296,7 +296,7 @@ $$
 - Алфавит состоящий из кириллицы, представленный в обоих регистрах, и цифры со специальными символами: `АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789.,;:!?()-«»`
 - Множество шрифтов для кириллицы, помещённые в папку `fonts`
 
-**Пример кода для генерации датасета для обучения нейросети:**
+**Генерация материалов для обучения:**
 ```python
 # dataset.py
 from PIL import Image, ImageDraw, ImageFont
@@ -306,50 +306,58 @@ import os
 SYMBOLS = [i for i in "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя0123456789.,;:!?()-«»"]
 FONTS = os.listdir("fonts")
 
-if __name__ == "__main__":
-    x, y = [], []
-    done = 1
+x, y = [], []
+done = 1
 
-    for symbol in SYMBOLS:
-        for font in FONTS:
-            font = ImageFont.truetype(os.path.join("fonts", font), 25)
-            img = Image.new("L", (40, 40), color=0)
-            draw = ImageDraw.Draw(img)
-            draw.text((10, 10), symbol, font=font, fill=255)
-            img = img.crop(img.getbbox())
-            img = img.resize((20, 20))
+for symbol in SYMBOLS:
+    for font in FONTS:
+        font = ImageFont.truetype(os.path.join("fonts", font), 25)
+        img = Image.new("L", (40, 40), color=0)
+        draw = ImageDraw.Draw(img)
+        draw.text((10, 10), symbol, font=font, fill=255)
+        img = img.crop(img.getbbox())
+        img = img.resize((20, 20))
 
-            arr = numpy.array(img)
-            arr = (arr > 100).astype(numpy.uint8)
-            x.append(arr.flatten())
-            y.append(symbol)
+        arr = numpy.array(img)
+        arr = (arr > 100).astype(numpy.uint8)
+        x.append(arr.flatten())
+        y.append(symbol)
 
-            print(f"\r{done}/{len(SYMBOLS) * len(FONTS)}", end="")
-            done += 1
+        print(f"\r{done}/{len(SYMBOLS) * len(FONTS)}", end="")
+        done += 1
 
-    x = numpy.array(x, dtype=numpy.uint8)
-    y = numpy.array(y)
+x = numpy.array(x, dtype=numpy.uint8)
+y = numpy.array(y)
 
-    numpy.savez("dataset.npz", x=x, y=y)
+numpy.savez("dataset.npz", x=x, y=y)
 
-    print()
+print()
 ```
+Код создаёт архив с паттернами (рисунки с символами - буквами, цифрами и спец. символами) и сохроняет в файл `dataset.npz`. 
 
-**Создай окружение `venv`:**
+**Просмотр содержимого `dataset.npz`:**
 ```
-python3 -m venv venv
-```
-**Активируй `venv`**
-```
-source venv/bin/activate
-```
-**Запусти код**
-```
-python dataset.py
-```
-**После завершения кода, в `dataset.npz` будут все паттеры для обучения**
+# viewer.py
+import numpy
+import os
 
-**Код для обучения модели:**
+data = numpy.load("dataset.npz")
+x, y = data["x"], data["y"]
+
+i = 0
+while True:
+    os.system("clear")
+
+    for row in x[i].reshape(20, 20):
+        print("".join("██" if px == 1 else "  " for px in row))
+    print(y[i])
+
+    # input()
+    i = (i + 1) % len(x)
+```
+Код показывает каждое сгенерированное изображение для обучения.
+
+**Обучение нейросети:**
 ```python
 # train.py
 import tensorflow
@@ -365,13 +373,13 @@ y = numpy.array([symbol_to_idx[s] for s in y])
 num_classes = len(symbols)
 y = tensorflow.keras.utils.to_categorical(y, num_classes)
 
-indices = numpy.arange(len(x))
-numpy.random.shuffle(indices)
-x = x[indices]
-y = y[indices]
+indexes = numpy.arange(len(x))
+numpy.random.shuffle(indexes)
+x = x[indexes]
+y = y[indexes]
 
-split = int(0.8 * len(x))
-X_train, X_val = x[:split], x[split:]
+split = int(0.9 * len(x))
+x_train, x_val = x[:split], x[split:]
 y_train, y_val = y[:split], y[split:]
 
 model = tensorflow.keras.Sequential([
@@ -409,8 +417,8 @@ early_stopping = tensorflow.keras.callbacks.EarlyStopping(
     restore_best_weights=True
 )
 
-model.fit(X_train, y_train,
-    validation_data=(X_val, y_val),
+model.fit(x_train, y_train,
+    validation_data=(x_val, y_val),
     epochs=300,
     batch_size=64,
     shuffle=True,
@@ -421,9 +429,40 @@ model.fit(X_train, y_train,
 model.save("model.keras")
 numpy.savez("labels.npz", symbols=symbols)
 ```
+Код обучает модель на основе подготовленных изображений с символами и сохроняет модель в `model.npz`.
 
-**Запусти обучение:**
+**Результат обучения:**
 ```
-python train.py
+# accuracy.py
+import tensorflow
+import numpy
+
+data = numpy.load("dataset.npz")
+x, y = data["x"], data["y"]
+
+model = tensorflow.keras.models.load_model("model.keras")
+labels = numpy.load("labels.npz")["symbols"]
+
+predict = model.predict(x, batch_size=64, verbose=0)
+predict = labels[numpy.argmax(predict, axis=1)]
+
+for label in labels:
+    mask = y == label
+    total = mask.sum()
+        
+    correct = (predict[mask] == y[mask]).sum()
+    acc = correct / total * 100
+    
+    predictions = predict[mask & (predict != y)]
+    info, counts = numpy.unique(predictions, return_counts=True)
+    
+    info_list = []
+    for info_label, count in zip(info, counts):
+        info_list.append(f"{info_label}: {count / total * 100:.1f}%")
+    
+    info_list.sort(key=lambda x: float(x.split(": ")[1][:-1]), reverse=True)
+
+    print(f"{label}: {correct}/{total}  -  {acc:.2f}%  ({', '.join(info_list)})")
 ```
-**После завершения обучения, модель сохраниться в `model.npz`**
+Код наглядно показывает как хорошо обучилась модель на обучающем архиве, где видно что модель хорошо различает буквы, цифры и спец. символы друг от друга, но путает регистр. Общий результат обучения получается приемлимым для печатных букв (т.е. для документов), что означает о готовности модели распозновать символы. 
+
