@@ -12,13 +12,13 @@ y = numpy.array([symbol_to_idx[s] for s in y])
 num_classes = len(symbols)
 y = tensorflow.keras.utils.to_categorical(y, num_classes)
 
-indices = numpy.arange(len(x))
-numpy.random.shuffle(indices)
-x = x[indices]
-y = y[indices]
+indexes = numpy.arange(len(x))
+numpy.random.shuffle(indexes)
+x = x[indexes]
+y = y[indexes]
 
-split = int(0.8 * len(x))
-X_train, X_val = x[:split], x[split:]
+split = int(0.9 * len(x))
+x_train, x_val = x[:split], x[split:]
 y_train, y_val = y[:split], y[split:]
 
 model = tensorflow.keras.Sequential([
@@ -56,8 +56,8 @@ early_stopping = tensorflow.keras.callbacks.EarlyStopping(
     restore_best_weights=True
 )
 
-model.fit(X_train, y_train,
-    validation_data=(X_val, y_val),
+model.fit(x_train, y_train,
+    validation_data=(x_val, y_val),
     epochs=300,
     batch_size=64,
     shuffle=True,
