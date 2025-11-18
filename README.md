@@ -107,7 +107,7 @@
 
 #### Входные сигналы:
 $$
-z_i^l = \sum_{j=1}^{n} \left[ w_{ij}^l \cdot a_j^{(l-1)} \right] + b_i^l
+a_i^{(1)} = \varphi\left(\sum_{j=1}^{n} w_{ij}^{(1)} x_j + b_i^{(1)}\right)
 $$
 
 где:
@@ -336,7 +336,7 @@ print()
 Код создаёт архив с паттернами (рисунки с символами - буквами, цифрами и спец. символами) и сохроняет в файл `dataset.npz`. 
 
 **Просмотр содержимого `dataset.npz`:**
-```
+``` python
 # viewer.py
 import numpy
 import os
@@ -432,7 +432,7 @@ numpy.savez("labels.npz", symbols=symbols)
 Код обучает модель на основе подготовленных изображений с символами и сохроняет модель в `model.npz`.
 
 **Результат обучения:**
-```
+``` python
 # accuracy.py
 import tensorflow
 import numpy
