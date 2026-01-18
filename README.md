@@ -475,3 +475,10 @@ $H$ — контекстные представления `LSTM`
 
 $Y$ — итоговая строка
 
+<div align="center">
+  <figure>
+    <img src="neural-network-cnn-lstm-ctc-preview.png">
+    <figcaption><em>Рис. 2: Архитектура комбинированной сети (CNN + LSTM + CTC)</em></figcaption>
+  </figure>
+</div>
+
