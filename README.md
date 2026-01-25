@@ -890,4 +890,5 @@ if __name__ == "__main__":
 
 
 
-* Списибо! - macosnik *
+
+_Списибо! - macosnik_
