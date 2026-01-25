@@ -658,3 +658,236 @@ hello
 | `EasyOCR` | `CNN + LSTM + CTC` | много (`RU`) | высокая | простая установка, готовые модели, `Python` | требует `PyTorch` | **лучший выбор для нашего проекта** |
 | `PaddleOCR` | `CNN + RNN + CTC/Attention` | много | средняя | высокая точность, много моделей | сложнее интеграция, тяжеловат | хорош для крупных проектов |
 | `Google Vision` | проприетарные модели | много | высокая | отличное качество, облачный сервис | платно, зависимость от внешнего `API` | не подходит для локального решения |
+
+#### Для нашего проекта важны:
+- Простота интеграции (`Python`‑скрипты, `Telegram`‑бот)
+- Поддержка русского языка
+- Готовая предобученная модель
+- Минимум возни с установкой
+
+По этим критериям `EasyOCR` - наиболее удобный выбор. Она уже реализует архитектуру, близкую к `CNN + LSTM + CTC`, имеет предобученные модели и легко подключается в `Python‑код`.
+
+### 3.2. Установка EasyOCR
+
+#### Установка через `pip`:
+
+```
+pip install easyocr
+```
+
+#### Также потребуется torch (`PyTorch`). Если он не установлен, можно поставить так:
+
+```
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+```
+
+(для `CPU`‑версии; для `GPU` будет другая команда, но в рамках нашего проекта достаточно `CPU`).
+
+### 3.3. Простейший запуск EasyOCR
+
+``` python
+import easyocr
+
+reader = easyocr.Reader(['ru'])
+results = reader.readtext('image.jpg')
+
+for coords, text, conf in results:
+    print(text, conf)
+```
+
+### 3.4. Постобработка текста: группировка строк
+
+EasyOCR возвращает текст фрагментами, и порядок может быть нарушен.
+
+#### Поэтому мы используем собственный алгоритм группировки, который:
+- Вычисляет центры боксов
+- Сортирует по вертикали
+- Объединяет строки по горизонтали
+- Формирует читаемый текст
+
+``` python
+def group(results):
+    if not results:
+        return []
+
+    texts, x, y, w, h = [], [], [], [], []
+
+    for coordinate, text, _ in results:
+        x_arr = [px[0] for px in coordinate]
+        y_arr = [px[1] for px in coordinate]
+        texts.append(text.strip())
+        x.append(sum(x_arr) / 4.0)
+        y.append(sum(y_arr) / 4.0)
+        w.append(max(x_arr) - min(x_arr))
+        h.append(max(y_arr) - min(y_arr))
+
+    def sort_key_index(i):
+        return (y[i], x[i])
+
+    def sort_key_x(j):
+        return x[j]
+
+    sort_indexes = sorted(range(len(texts)), key=sort_key_index)
+
+    lines, current_line = [], []
+
+    for i in sort_indexes:
+        if not current_line:
+            current_line = [i]
+            continue
+        if abs(y[i] - y[current_line[-1]]) <= np.mean(h) * 0.6:
+            current_line.append(i)
+        else:
+            current_line.sort(key=sort_key_x)
+            lines.append(current_line)
+            current_line = [i]
+
+    if current_line:
+        current_line.sort(key=sort_key_x)
+        lines.append(current_line)
+
+    return "\n".join([" ".join(texts[j] for j in line) for line in lines])
+```
+
+Этот алгоритм делает текст структурированным и удобным для чтения.
+
+### 3.5. Создание `Telegram`‑бота
+
+#### Теперь создадим `Telegram`‑бота, который:
+1. Принимает изображение
+2. Распознаёт текст через `EasyOCR`
+3. Группирует строки через `group()`
+4. Отправляет результат пользователю
+
+#### Полная реализация
+
+``` python
+import easyocr
+import os
+import numpy as np
+from telegram import Update
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+
+reader = easyocr.Reader(['ru'])
+
+def group(results):
+    if not results:
+        return []
+
+    texts, x, y, w, h = [], [], [], [], []
+
+    for coordinate, text, _ in results:
+        x_arr = [px[0] for px in coordinate]
+        y_arr = [px[1] for px in coordinate]
+        texts.append(text.strip())
+        x.append(sum(x_arr) / 4.0)
+        y.append(sum(y_arr) / 4.0)
+        w.append(max(x_arr) - min(x_arr))
+        h.append(max(y_arr) - min(y_arr))
+
+    def sort_key_index(i):
+        return (y[i], x[i])
+
+    def sort_key_x(j):
+        return x[j]
+
+    sort_indexes = sorted(range(len(texts)), key=sort_key_index)
+
+    lines, current_line = [], []
+
+    for i in sort_indexes:
+        if not current_line:
+            current_line = [i]
+            continue
+        if abs(y[i] - y[current_line[-1]]) <= np.mean(h) * 0.6:
+            current_line.append(i)
+        else:
+            current_line.sort(key=sort_key_x)
+            lines.append(current_line)
+            current_line = [i]
+
+    if current_line:
+        current_line.sort(key=sort_key_x)
+        lines.append(current_line)
+
+    return "\n".join([" ".join(texts[j] for j in line) for line in lines])
+
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Привет! Отправь мне изображение, и я распознаю текст на нём.")
+
+async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    photo = update.message.photo[-1]
+    file = await photo.get_file()
+    file_path = f"dataset/temp_{len(os.listdir('dataset'))}.jpg"
+    await file.download_to_drive(file_path)
+
+    results = reader.readtext(file_path)
+    text = group(results)
+
+    if text == []:
+        await update.message.reply_text("Не удалось распознать текст 😔")
+    else:
+        await update.message.reply_text(text)
+
+def main():
+    telegram = Application.builder().token("TOKEN").build()
+
+    telegram.add_handler(CommandHandler("start", start))
+    telegram.add_handler(MessageHandler(filters.PHOTO, handle_photo))
+
+    telegram.run_polling()
+
+if __name__ == "__main__":
+    os.system("mkdir dataset")
+    main()
+```
+
+### 3.6. Итоговая схема работы
+
+1. Пользователь отправляет изображение боту
+2. `EasyOCR` распознаёт текст
+3. Алгоритм `group()` сортирует и объединяет строки
+4. Бот отправляет готовый читаемый текст пользователю
+
+#### Таким образом, мы получили:
+- Локальную систему `OCR`
+- Основанную на `CNN + LSTM + CTC`
+- С постобработкой текста
+- Интегрированную в `Telegram`‑бота
+
+Это завершённый рабочий проект, который можно развивать дальше.
+
+## 4. Возможности дальнейшего развития
+
+Проект уже выполняет полный цикл: `OCR` → `постобработка` → `Telegram`‑бот. Однако его можно расширять дальше:
+
+1. Улучшение качества `OCR`
+  - Добавление новых языков.
+  - Предобработка изображений (резкость, выравнивание, шумоподавление).
+  - Использование `GPU` для ускорения.
+
+2. Расширение постобработки
+  - Исправление типичных `OCR`‑ошибок.
+  - Восстановление структуры текста (абзацы, списки).
+  - Нормализация пунктуации и пробелов.
+
+3. Поддержка `PDF`
+  - Извлечение страниц.
+  - `OCR` каждой страницы.
+  - Сбор текста в единый документ.
+
+4. Улучшение `Telegram`‑бота
+  - Кнопки и меню.
+  - Выбор языка распознавания.
+  - Поддержка `PDF`, документов, сканов.
+
+5. Собственная модель
+  - Сбор датасета.
+  - Обучение своей `CNN+LSTM+CTC` модели.
+  - Оптимизация под конкретные документы.
+
+
+
+
+* Списибо! - macosnik *
