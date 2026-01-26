@@ -751,6 +751,54 @@ def group(results):
 
 Этот алгоритм делает текст структурированным и удобным для чтения.
 
+#### Пример извлечения текста на кириллице с изображения:
+
+<div align="center">
+  <figure>
+    <img src="test_ru.jpeg">
+    <figcaption><em>Рис. 3: Изображение с кириллицей</em></figcaption>
+  </figure>
+</div>
+
+```
+Зима
+Наступила уже настоящая зима:
+Земля была покрыта белоснежным
+ковром. He осталось ни одного
+тёмного пятнышка: Даже голые
+берёзы; ольхи и рябины убрались
+инеем; точно серебристым пухом.
+Они стояли, засыпанные снегом
+как будто надели дорогую тёплую
+шубу ',,
+Д Н Мамин-Сибиряк
+```
+
+#### Пример извлечения текста на латинице с изображения:
+
+<div align="center">
+  <figure>
+    <img src="test_en.jpeg">
+    <figcaption><em>Рис. 4: Изображение с латиницей</em></figcaption>
+  </figure>
+</div>
+
+```
+Hello, boys and girls!
+1'm Tom. 1 live in London. It
+was а Iot of fun last week. It
+was the Day of the London. 1
+and my mum were in the
+park. There were а lot of
+balloons; food and drink. It
+was very interesting there.
+We were happy:
+Write back and tell me
+about your Day of the City:
+Send a picture!
+Love,
+```
+
 ### 3.5. Создание `Telegram`‑бота
 
 #### Теперь создадим `Telegram`‑бота, который:
