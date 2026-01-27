@@ -776,12 +776,12 @@ def group(results):
 
 #### Пример извлечения текста на латинице с изображения:
 
-<div align="center" style="width: 50%; margin: 0 auto;">
-  <figure>
-    <img src="test_en.jpeg" style="width: 100%; height: auto;">
-    <figcaption><em>Рис. 4: Изображение с латиницей</em></figcaption>
-  </figure>
-</div>
+<p align="center">
+  <img src="test_en.jpeg" width="50%">
+</p>
+<p align="center">
+  <em>Рис. 4: Изображение с латиницей</em>
+</p>
 
 ```
 Hello, boys and girls!
