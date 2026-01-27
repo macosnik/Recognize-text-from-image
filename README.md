@@ -754,7 +754,7 @@ def group(results):
 #### Пример извлечения текста на кириллице с изображения:
 
 <p align="center">
-  <img src="test_en.jpeg" width="50%">
+  <img src="test_ru.jpeg" width="50%">
 </p>
 <p align="center">
   <em>Рис. 3: Изображение с кириллицей</em>
