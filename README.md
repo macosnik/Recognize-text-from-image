@@ -753,12 +753,12 @@ def group(results):
 
 #### Пример извлечения текста на кириллице с изображения:
 
-<div align="center">
-  <figure style="width: 50%; margin: 0 auto;">
-    <img src="test_ru.jpeg" style="width: 100%; height: auto;">
-    <figcaption><em>Рис. 4: Изображение с кириллицей</em></figcaption>
-  </figure>
-</div>
+<p align="center">
+  <img src="test_en.jpeg" width="50%">
+</p>
+<p align="center">
+  <em>Рис. 3: Изображение с кириллицей</em>
+</p>
 
 ```
 Зима
