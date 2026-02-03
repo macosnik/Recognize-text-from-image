@@ -714,16 +714,10 @@ def group(results):
 
 ```
 Зима
-Наступила уже настоящая зима:
-Земля была покрыта белоснежным
-ковром. He осталось ни одного
-тёмного пятнышка: Даже голые
-берёзы; ольхи и рябины убрались
-инеем; точно серебристым пухом.
-Они стояли, засыпанные снегом
-как будто надели дорогую тёплую
-шубу ',,
-Д Н Мамин-Сибиряк
+Наступила уже настоящая зима.
+Земля была покрыта белоснежным ковром. Не осталось ни одного тёмного пятнышка. Даже голые берёзы, ольхи и рябины убрались инеем, точно серебристым пухом.
+Они стояли, засыпанные снегом, как будто надели дорогую тёплую шубу...
+Д.Н.Мамин-Сибиряк
 ```
 
 #### Пример извлечения текста на латинице с изображения:
@@ -737,16 +731,9 @@ def group(results):
 
 ```
 Hello, boys and girls!
-1'm Tom. 1 live in London. It
-was а Iot of fun last week. It
-was the Day of the London. 1
-and my mum were in the
-park. There were а lot of
-balloons; food and drink. It
-was very interesting there.
-We were happy:
-Write back and tell me
-about your Day of the City:
+I'm Tom. I live in London. It was a lot of fun last week. It was the Day of the London. I and my mum were in the park. There were a lot of balloons, food and drink. It was very interesting there.
+We were happy.
+Write back and tell me about your Day of the City.
 Send a picture!
 Love,
 ```
