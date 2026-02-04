@@ -811,6 +811,7 @@ async def handle_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     results = reader.readtext(file_path)
     text = group(results)
+    os.remove(file_path)
 
     if text == []:
         await update.message.reply_text("Не удалось распознать текст 😔")
